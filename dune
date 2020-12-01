@@ -1,0 +1,3 @@
+(executable
+ (name day_1)
+ (libraries core extlib))
