@@ -2,100 +2,32 @@ open Core
 
 let file = "input.txt"
 
-type fieldType =
-  | BYR
-  | IYR
-  | EYR
-  | HGT
-  | HCL
-  | ECL
-  | PID
-  | CID
-  | Invalid
+let char_to_bit char =
+  match char with
+    | 'F' | 'L' -> 0
+    | 'B' | 'R' -> 1
+    | _ -> raise (Failure (Printf.sprintf "Invalid character: %c" char))
 
-let parse_field field =
-  let parts = String.split ~on:':' field in
-
-  match parts with
-    | ["byr"; year_str] ->
-      let year = int_of_string year_str in
-      if year >= 1920 && year <= 2002
-      then
-        Some(BYR)
-      else
-        Some(Invalid)
-      ;
-    | ["iyr"; year_str] ->
-      let year = int_of_string year_str in
-      if year >= 2010 && year <= 2020
-      then
-        Some(IYR)
-      else
-        Some(Invalid)
-      ;
-    | ["eyr"; year_str] ->
-      let year = int_of_string year_str in
-      if year >= 2020 && year <= 2030
-      then
-        Some(EYR)
-      else
-        Some(Invalid)
-      ;
-    | ["hgt"; value] ->
-      let suffix = String.slice value (-2) (0) in
-      let num = String.slice value 0 (-2) in
-
-      (
-        match [int_of_string_opt(num), suffix] with
-        | [Some(a), "cm"] when a >= 150 && a <= 193 -> Some(HGT)
-        | [Some(a), "in"] when a >= 59 && a <= 76 -> Some(HGT)
-        | _ -> Some(Invalid)
-      )
-    | ["hcl"; value] ->
-      let re = Str.regexp "^#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]$" in
-      if Str.string_match re value 0 then
-        Some(HCL)
-      else
-        Some(Invalid)
-    | ["ecl"; value] ->
-      (
-        match value with
-        | "amb" | "blu" | "brn" | "gry" | "grn" | "hzl" | "oth" -> Some(ECL)
-        | _ -> Some(Invalid)
-      )
-    | ["pid"; value] ->
-      if String.length value = 9 && Option.is_some (int_of_string_opt value) then
-        Some(PID)
-      else
-        Some(Invalid)
-    | ["cid"; _] -> Some(CID);
-    | _ -> None;
+let fold_array_to_id idx acc item =
+  acc + (Int.shift_left item idx)
 ;;
 
 let parse_line line =
-  let parts = String.split line ~on:' ' in
-  List.filter_map ~f:parse_field parts
+  let a = List.rev (List.map (String.to_list line) ~f:char_to_bit) in
+  List.foldi a ~f:fold_array_to_id ~init:0
 ;;
 
-let fold_line acc line =
-  let latest_line = List.hd_exn acc in
-  if List.length line > 0 then ([line @ latest_line] @ (List.tl_exn acc)) else ([[]] @ acc)
+let rec print_list_string myList = match myList with
+  | [] -> ()
+  | head::body ->
+    print_endline (Printf.sprintf "%d" head);
+    print_list_string body
 ;;
 
-let contains line e =
-  not (phys_equal (List.find line ~f:(fun a -> phys_equal a e)) None)
-
-let is_valid line =
-  (contains line BYR) &&
-  (contains line IYR) &&
-  (contains line EYR) &&
-  (contains line HGT) &&
-  (contains line HCL) &&
-  (contains line ECL) &&
-  (contains line PID)
-  (* (contains line CID) *)
+let find_empty_seats list =
+  let range = List.range 21 996 in
+  List.filter range ~f:(fun a -> not (List.mem list a ~equal:(fun a b -> phys_equal a b)))
 ;;
-
 
 let () =
   let ic = In_channel.create file in
@@ -103,8 +35,10 @@ let () =
   In_channel.close ic;
 
   let parsed_lines = List.map ~f:parse_line lines in
+  let sorted_list = List.sort parsed_lines ~compare:(fun a b -> (b - a)) in
 
-  let asdas = List.rev (List.fold_left ~init:[[]] ~f:fold_line parsed_lines) in
-  Printf.printf "Test: %d" (List.length (List.filter asdas ~f:is_valid))
+  Printf.printf "Highest ID: %d\n" (List.nth_exn sorted_list 0);
 
+  print_endline "\nEmpty seats:";
+  print_list_string (find_empty_seats sorted_list)
 ;;
